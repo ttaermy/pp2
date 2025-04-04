@@ -1,0 +1,2 @@
+#to run a file
+python "c:/Users/tomir/Desktop/pp2/lab 08_09/racer.py"
