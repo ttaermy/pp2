@@ -1,14 +1,4 @@
-import csv
-
-# Data to write
-data = [
-    ["name", "number"],
-    ["Talia", "87075764787"],
-    ["Jackson", "87053787690"],
-    ["Percy", "87012367896"]
-]
-
-# Write to CSV file
-with open("contacts.csv", mode="w", newline="") as file:
-    writer = csv.writer(file)
-    writer.writerows(data)
+name,phone
+Talia,+77076578998
+Jackson,+77057982345
+Percy,+77012339876
