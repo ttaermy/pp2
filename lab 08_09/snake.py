@@ -3,7 +3,14 @@ import random
 
 pygame.init()
 
-food_sound = pygame.mixer.Sound('catch.mp3')
+try:
+    food_sound = pygame.mixer.Sound('catch.mp3')
+    direction_sound = pygame.mixer.Sound('gotcoin.wav')  # Changed to use gotcoin.wav
+    direction_sound.set_volume(0.3)
+except:
+    print("Could not load sound files")
+    direction_sound = None
+    food_sound = None
 
 # экран
 WIDTH, HEIGHT = 800, 700
@@ -21,6 +28,15 @@ MARGIN = 1
 GRID_ROWS = 30
 GRID_COLS = 30
 BG_PADDING = 10
+RED = (255, 0, 0)
+
+try:
+    head_img = pygame.image.load('snake_head.jpg').convert_alpha()
+    head_img = pygame.transform.scale(head_img, (BLOCK, BLOCK))  # Resize to match block size
+    use_head_image = True
+except:
+    print("Could not load snake_head.png, using rectangle instead")
+    use_head_image = False
 
 # координаты сетки
 grid_width = GRID_COLS * BLOCK + (GRID_COLS + 1) * MARGIN
@@ -82,10 +98,25 @@ score = 0
 level = 1
 
 # отрисовка блока
-def draw_block(color, row, column):
+def draw_block(color, row, column, is_head=False, direction=(0,0)):
     x = start_x + column * BLOCK + MARGIN * (column + 1)
     y = start_y + row * BLOCK + MARGIN * (row + 1)
-    pygame.draw.rect(screen, color, [x, y, BLOCK, BLOCK])
+    
+    if is_head and use_head_image:
+        # Двигаем голову в нужную сторону
+        angle = 0
+        if direction == (0, -1):  # up
+            angle = 90
+        elif direction == (0, 1):  # down
+            angle = 270
+        elif direction == (-1, 0):  # left
+            angle = 180
+        # когда право, не нужно
+        
+        rotated_head = pygame.transform.rotate(head_img, angle)
+        screen.blit(rotated_head, (x, y))
+    else:
+        pygame.draw.rect(screen, color, [x, y, BLOCK, BLOCK])
 
 # генерация еды не на змейке
 def generate_food():
@@ -111,6 +142,8 @@ while running:
         if event.type == pygame.QUIT:
             running = False
         elif event.type == pygame.KEYDOWN:
+            old_dx, old_dy = dx, dy  # Store old direction
+            
             if event.key == pygame.K_a and dy == 0:
                 dx, dy = 0, -1
             elif event.key == pygame.K_d and dy == 0:
@@ -119,6 +152,11 @@ while running:
                 dx, dy = -1, 0
             elif event.key == pygame.K_s and dx == 0:
                 dx, dy = 1, 0
+            
+            # Звук если поменяли направление
+            if (dx, dy) != (old_dx, old_dy) and direction_sound:
+                direction_sound.play()
+
         elif event.type == move_event:
             head = snake_block[-1]
             new_x = head.x + dx
@@ -131,7 +169,7 @@ while running:
                 running = False
                 break
 
-            # столкновение с теом
+            # столкновение с телом
             if any(block.x == new_x and block.y == new_y for block in snake_block):
                 print("Game Over: hit itself!", "Your Score is", score)
                 running = False
@@ -163,8 +201,12 @@ while running:
     # сетка
     for row in range(GRID_ROWS):
         for column in range(GRID_COLS):
-            color = GRAY if (row + column) % 2 == 0 else WHITE
-            draw_block(color, row, column)
+            # Красные края
+            if row == 0 or row == GRID_ROWS-1 or column == 0 or column == GRID_COLS-1:
+                draw_block(RED, row, column)
+            else:
+                color = GRAY if (row + column) % 2 == 0 else WHITE
+                draw_block(color, row, column)
 
     # еда с цветом в зависимости от веса
     if food.weight == 1:
@@ -175,9 +217,13 @@ while running:
         FOOD_COLOR = (255, 215, 0)
     draw_block(FOOD_COLOR, food.x, food.y)
 
-    # змейка
-    for block in snake_block:
-        draw_block(SNAKE, block.x, block.y)
+    # змейка 
+    for i, block in enumerate(snake_block):
+        if i == len(snake_block) - 1:  #Голова
+            draw_block(SNAKE, block.x, block.y, is_head=True, direction=(dx, dy))
+        else:
+            draw_block(SNAKE, block.x, block.y)
+    
 
     # счёт и уровень
     text = font.render(f"Score: {score}  Level: {level}", True, WHITE)

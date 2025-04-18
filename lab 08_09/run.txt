@@ -1,2 +1,25 @@
 #to run a file
 python "c:/Users/tomir/Desktop/pp2/lab 08_09/racer.py"
+
+
+class Player(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__()
+        self.image = pygame.image.load('Player.png')
+        self.rect = self.image.get_rect()
+        self.rect.center = (160, 520)
+
+    def move(self):
+        keys = pygame.key.get_pressed()
+        if keys[K_a] and self.rect.left > 0:
+            self.rect.move_ip(-5, 0)
+        if keys[K_d] and self.rect.right < SCREEN_WIDTH:
+            self.rect.move_ip(5, 0)
+        if keys[K_w] and self.rect.top > 0:
+            self.rect.move_ip(0, -5)
+        if keys[K_s] and self.rect.bottom < SCREEN_HEIGHT:
+            self.rect.move_ip(0, 5)
+
+
+
+    
