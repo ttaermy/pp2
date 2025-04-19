@@ -1,112 +1,128 @@
-import psycopg2
+import sqlite3
 import csv
 
-#  Параметры подключения
-params = {
-    "dbname": "PhoneBook",
-    "user": "postgres",
-    "password": "Amfundi10",
-    "host": "localhost",
-    "port": "5432"
-}
+# Connect to SQLite database (creates it if it doesn't exist)
+conn = sqlite3.connect("phonebook.db")
+cursor = conn.cursor()
 
-# Подключение к базе
-print("Connecting to the database...")
-conn = psycopg2.connect(**params)
-cur = conn.cursor()
-
-# Создание таблицы
-cur.execute("""
-    CREATE TABLE IF NOT EXISTS contacts (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        phone VARCHAR(20) NOT NULL
-    );
-""")
-conn.commit()
-
-
-#  Добавить контакт вручную
-def add_contact():
-    name = input("Enter a name: ")
-    phone = input("Enter phone number: ")
-    cur.execute("INSERT INTO contacts (name, phone) VALUES (%s, %s)", (name, phone))
+# Step 1: Create table
+def create_table():
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS PhoneBook (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        phone TEXT NOT NULL UNIQUE
+    )
+    """)
     conn.commit()
-    print("✅ Contact added")
 
-
-#  Показать все контакты
-def view_contacts():
-    cur.execute("SELECT * FROM contacts")
-    rows = cur.fetchall()
-    print("\n📒 All contacts:")
-    for row in rows:
-        print(f"ID: {row[0]}, Name: {row[1]}, Phone number: {row[2]}")
-    print()
-
-
-#  Обновить контакт
-def update_contact():
-    contact_id = input("Enter the contact's ID to update: ")
-    new_name = input("New Name: ")
-    new_phone = input("New Phone Number: ")
-    cur.execute("UPDATE contacts SET name = %s, phone = %s WHERE id = %s", (new_name, new_phone, contact_id))
+# Step 2.1: Insert from CSV
+def insert_from_csv(filename="contacts.csv"):
+    with open(filename, newline='', encoding='utf-8') as csvfile:
+        reader = csv.reader(csvfile)
+        for row in reader:
+            try:
+                name, phone = row
+                cursor.execute("INSERT INTO PhoneBook (name, phone) VALUES (?, ?)", (name, phone))
+            except Exception as e:
+                print(f"Error inserting {row}: {e}")
     conn.commit()
-    print("🔄 The contact has been updated!")
 
-
-#  Удалить контакт
-def delete_contact():
-    contact_id = input("Enter the contact ID to delete: ")
-    cur.execute("DELETE FROM contacts WHERE id = %s", (contact_id,))
-    conn.commit()
-    print("🗑️ Contact deleted!")
-
-
-#  Загрузка из CSV
-def load_from_csv():
-    file_name = input("Enter the name of the CSV file (for example, contacts.csv): ")
+# Step 2.2: Insert from console
+def insert_from_console():
+    name = input("Enter name: ")
+    phone = input("Enter phone: ")
     try:
-        with open(file_name, newline='', encoding='utf-8') as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                name = row['name']
-                phone = row['phone']
-                cur.execute("INSERT INTO contacts (name, phone) VALUES (%s, %s)", (name, phone))
+        cursor.execute("INSERT INTO PhoneBook (name, phone) VALUES (?, ?)", (name, phone))
         conn.commit()
-        print("📥 The CSV data has been successfully added!")
+        print("Contact added.")
     except Exception as e:
-        print("⚠️ Error when uploading the CSV file:", e)
+        print(f"Error: {e}")
 
+# Step 3: Update data
+def update_contact():
+    phone = input("Enter the phone number of the contact to update: ")
+    new_name = input("Enter new name (leave blank to skip): ")
+    new_phone = input("Enter new phone (leave blank to skip): ")
 
-#  Меню
-while True:
-    print("\n===== Menu PhoneBook =====")
-    print("1. Add a contact")
-    print("2. Show all contacts")
-    print("3. Update a contact")
-    print("4. Delete a contact")
-    print("5. Upload contacts from a CSV file")
-    print("0. Exit")
+    if new_name:
+        cursor.execute("UPDATE PhoneBook SET name = ? WHERE phone = ?", (new_name, phone))
+    if new_phone:
+        cursor.execute("UPDATE PhoneBook SET phone = ? WHERE phone = ?", (new_phone, phone))
 
-    choice = input("Select an action: ")
+    conn.commit()
+    print("Contact updated.")
 
+# Step 4: Query data with filters
+def query_contacts():
+    print("1. All contacts")
+    print("2. Filter by name")
+    print("3. Filter by phone")
+    choice = input("Choose filter option: ")
     if choice == "1":
-        add_contact()
+        cursor.execute("SELECT * FROM PhoneBook")
     elif choice == "2":
-        view_contacts()
+        name = input("Enter name to search: ")
+        cursor.execute("SELECT * FROM PhoneBook WHERE name LIKE ?", ('%' + name + '%',))
     elif choice == "3":
-        update_contact()
-    elif choice == "4":
-        delete_contact()
-    elif choice == "5":
-        load_from_csv()
-    elif choice == "0":
-        break
+        phone = input("Enter phone to search: ")
+        cursor.execute("SELECT * FROM PhoneBook WHERE phone LIKE ?", ('%' + phone + '%',))
     else:
-        print("❗ Wrong choice. Try again.")
+        print("Invalid choice")
+        return
 
-# Закрытие соединения
-cur.close()
-conn.close()
-print("👋 BYE!")
+    results = cursor.fetchall()
+    for r in results:
+        print(r)
+
+# Step 5: Delete contact
+def delete_contact():
+    print("Delete by:")
+    print("1. Name")
+    print("2. Phone")
+    choice = input("Choose option: ")
+    if choice == "1":
+        name = input("Enter name to delete: ")
+        cursor.execute("DELETE FROM PhoneBook WHERE name = ?", (name,))
+    elif choice == "2":
+        phone = input("Enter phone to delete: ")
+        cursor.execute("DELETE FROM PhoneBook WHERE phone = ?", (phone,))
+    else:
+        print("Invalid choice")
+        return
+
+    conn.commit()
+    print("Contact(s) deleted.")
+
+# Menu to test
+def menu():
+    create_table()
+    while True:
+        print("\n--- PhoneBook Menu ---")
+        print("1. Insert from CSV")
+        print("2. Insert manually")
+        print("3. Update contact")
+        print("4. Query contacts")
+        print("5. Delete contact")
+        print("6. Exit")
+
+        choice = input("Enter choice: ")
+        if choice == "1":
+            insert_from_csv()
+        elif choice == "2":
+            insert_from_console()
+        elif choice == "3":
+            update_contact()
+        elif choice == "4":
+            query_contacts()
+        elif choice == "5":
+            delete_contact()
+        elif choice == "6":
+            break
+        else:
+            print("Invalid choice. Try again.")
+
+    conn.close()
+
+if __name__ == "__main__":
+    menu()
